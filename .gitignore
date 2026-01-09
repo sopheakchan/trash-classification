@@ -1,0 +1,38 @@
+# Virtual Environment
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model files (optional - uncomment if models are too large for git)
+# models/*.keras
+# models/*.h5
+# models/*.tflite
+
+# Data files (optional - uncomment if datasets are too large)
+# *.jpg
+# *.png
+# *.jpeg
