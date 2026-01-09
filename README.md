@@ -1,6 +1,6 @@
 # Trash Classification - Can vs Plastic
 
-A deep learning model to classify trash images into **Can** or **Plastic** categories using MobileNetV2. This project includes both a full Keras model for development and a lightweight TFLite model optimized for Raspberry Pi deployment.
+A deep learning model to classify trash images into **Can** or **Plastic** categories using MobileNetV2. Designed for a **smart reverse vending machine** IoT project that automatically sorts recyclables and rewards users. This project includes both a full Keras model for development and a lightweight TFLite model optimized for Raspberry Pi deployment.
 
 ## Project Overview
 
