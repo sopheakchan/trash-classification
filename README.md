@@ -57,16 +57,12 @@ pip install -r requirements.txt
 This will install:
 - tensorflow
 - numpy
-- pandas
 - matplotlib
-- seaborn
-- scikit-learn
 - opencv-python
 
 ### Step 4: Download the Model
 
 Make sure you have the trained models in the `models/` folder:
-- `models/ai-model.keras` - Full Keras model for development
 - `models/ai-model-fp32.tflite` - Lightweight TFLite model for Raspberry Pi
 
 ## Using the Model
@@ -82,38 +78,8 @@ jupyter notebook inference.ipynb
 Run the cells to:
 1. Load the model
 2. Test predictions on sample images
-3. Compare Keras vs TFLite model outputs
+3. TFLite model outputs
 
-### Prediction Function (Keras Model)
-
-```python
-from tensorflow import keras
-import cv2
-import numpy as np
-
-model = keras.models.load_model('models/ai-model.keras')
-class_names = ['Can', 'Plastic']
-
-def predict_image(model, img_path, class_names):
-    img = cv2.imread(img_path)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img_resized = cv2.resize(img_rgb, (224, 224))
-    
-    # Keep in [0, 255] range
-    img_array = img_resized.astype("float32")
-    img_array = np.expand_dims(img_array, axis=0)
-    
-    p = float(model.predict(img_array, verbose=0)[0][0])
-    
-    if p >= 0.5:
-        return class_names[1], p * 100  # Plastic
-    else:
-        return class_names[0], (1-p) * 100  # Can
-
-# Use this
-pred_class, confidence = predict_image(model, 'test_image.jpg', class_names)
-print(f"Predicted: {pred_class} ({confidence:.2f}%)")
-```
 
 ### Prediction Function (TFLite Model for Raspberry Pi)
 
