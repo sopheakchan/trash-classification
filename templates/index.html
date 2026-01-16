@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Classification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .scores {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .score-box {
+            background: #f7f7f7;
+            padding: 20px;
+            border-radius: 10px;
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .score-box h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .score-number {
+            font-size: 3em;
+            font-weight: bold;
+        }
+
+        .can-score {
+            color: #3498db;
+        }
+
+        .plastic-score {
+            color: #e74c3c;
+        }
+
+        .status {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+            color: #555;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #startBtn {
+            background: #27ae60;
+            color: white;
+        }
+
+        #startBtn:hover {
+            background: #2ecc71;
+        }
+
+        #captureBtn {
+            background: #3498db;
+            color: white;
+        }
+
+        #captureBtn:hover {
+            background: #5dade2;
+        }
+
+        #stopBtn {
+            background: #e74c3c;
+            color: white;
+        }
+
+        #stopBtn:hover {
+            background: #ec7063;
+        }
+
+        .prediction-result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 1.3em;
+            font-weight: bold;
+            display: none;
+        }
+
+        .prediction-result.show {
+            display: block;
+        }
+
+        .prediction-result.can {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .prediction-result.plastic {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Object Classification</h1>
+        
+        <div class="scores">
+            <div class="score-box">
+                <h3>CANS</h3>
+                <div class="score-number can-score" id="canScore">0</div>
+            </div>
+            <div class="score-box">
+                <h3>PLASTIC</h3>
+                <div class="score-number plastic-score" id="plasticScore">0</div>
+            </div>
+        </div>
+
+        <div class="status" id="status">Ready to start</div>
+
+        <div class="buttons">
+            <button id="startBtn" onclick="startSession()">START</button>
+            <button id="captureBtn" onclick="captureImage()" disabled>CAPTURE</button>
+            <button id="stopBtn" onclick="stopSession()" disabled>STOP</button>
+        </div>
+
+        <div class="prediction-result" id="predictionResult"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        let isActive = false;
+
+        function updateStatus(message, type = 'normal') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status';
+            if (type === 'active') statusEl.classList.add('active');
+            if (type === 'error') statusEl.classList.add('error');
+        }
+
+        function updateScores(canCount, plasticCount) {
+            document.getElementById('canScore').textContent = canCount;
+            document.getElementById('plasticScore').textContent = plasticCount;
+        }
+
+        function showLoading(show) {
+            const loadingEl = document.getElementById('loading');
+            if (show) {
+                loadingEl.classList.add('show');
+            } else {
+                loadingEl.classList.remove('show');
+            }
+        }
+
+        function showPrediction(prediction, confidence) {
+            const resultEl = document.getElementById('predictionResult');
+            resultEl.className = 'prediction-result show';
+            resultEl.classList.add(prediction.toLowerCase());
+            resultEl.innerHTML = `
+                Prediction: <strong>${prediction}</strong><br>
+                Confidence: ${confidence}%
+            `;
+        }
+
+        function hidePrediction() {
+            const resultEl = document.getElementById('predictionResult');
+            resultEl.className = 'prediction-result';
+        }
+
+        async function startSession() {
+            try {
+                showLoading(true);
+                const response = await fetch('/start', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    isActive = true;
+                    updateStatus('Session started! Ready to capture', 'active');
+                    updateScores(0, 0);
+                    hidePrediction();
+                    
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('captureBtn').disabled = false;
+                    document.getElementById('stopBtn').disabled = false;
+                } else {
+                    updateStatus('Error starting session', 'error');
+                }
+            } catch (error) {
+                updateStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function captureImage() {
+            try {
+                showLoading(true);
+                hidePrediction();
+                updateStatus('Capturing and analyzing...', 'active');
+                
+                const response = await fetch('/capture', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateScores(data.can_count, data.plastic_count);
+                    showPrediction(data.prediction, data.confidence);
+                    updateStatus(`Detected: ${data.prediction}!`, 'active');
+                } else {
+                    updateStatus('Error: ' + data.message, 'error');
+                }
+            } catch (error) {
+                updateStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function stopSession() {
+            try {
+                showLoading(true);
+                const response = await fetch('/stop', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    isActive = false;
+                    const scores = data.final_scores;
+                    updateStatus(
+                        `Session ended! Final: ${scores.can_count} Cans, ${scores.plastic_count} Plastic`,
+                        'normal'
+                    );
+                    
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('captureBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = true;
+                    hidePrediction();
+                }
+            } catch (error) {
+                updateStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 's' && !isActive) startSession();
+            if (e.key === 'c' && isActive) captureImage();
+            if (e.key === 'x' && isActive) stopSession();
+        });
+    </script>
+</body>
+</html>
