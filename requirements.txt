@@ -1,6 +1,5 @@
-tflite-runtime
+tensorflow
 numpy
-matplotlib
 opencv-python
 flask
 flask-cors

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
-import tflite_runtime.interpreter as tflite
+import tensorflow as tf
 import cv2
 import numpy as np
 from datetime import datetime
@@ -24,7 +24,7 @@ PICTURE_FOLDER = 'Picture'
 os.makedirs(PICTURE_FOLDER, exist_ok=True)
 
 # Initialize TFLite interpreter
-interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
 # Get input and output details
