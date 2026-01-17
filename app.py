@@ -144,7 +144,7 @@ def capture_and_predict():
                 'message': 'Failed to open camera'
             }), 500
         
-        print("✅ Camera opened successfully")
+        print(" Camera opened successfully")
         
         # Capture image
         print(" Capturing frame...")
@@ -157,23 +157,23 @@ def capture_and_predict():
                 'message': 'Failed to capture image'
             }), 500
         
-        print(f"✅ Frame captured: {frame.shape}")
+        print(f" Frame captured: {frame.shape}")
         
         # Save original image (overwrite each time)
         image_filename = "detected.jpg"
         image_path = os.path.join(PICTURE_FOLDER, image_filename)
         cv2.imwrite(image_path, frame)
-        print(f"💾 Image saved to: {image_path}")
+        print(f" Image saved to: {image_path}")
         
         # Preprocess for prediction
-        print("🔄 Preprocessing image...")
+        print(" Preprocessing image...")
         img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img_resized = cv2.resize(img_rgb, (224, 224))
         
         # Predict
-        print("🤖 Running prediction...")
+        print(" Running prediction...")
         predicted_class, confidence = predict_image_tflite(img_resized)
-        print(f"✅ Prediction: {predicted_class} ({confidence*100:.2f}%)")
+        print(f" Prediction: {predicted_class} ({confidence*100:.2f}%)")
         
         # Update counts
         if predicted_class == 'Can':
