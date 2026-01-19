@@ -224,7 +224,7 @@
 
         <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 10px; font-size: 0.9em;">
             <label style="margin-right: 10px;">Pi IP:</label>
-            <input type="text" id="piIpInput" value="192.168.1.101" 
+            <input type="text" id="piIpInput" value="172.20.10.2" 
                    style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 5px; width: 150px;">
             <small style="display: block; margin-top: 5px; color: #666;">Change this to your Raspberry Pi's IP address</small>
         </div>
@@ -289,7 +289,7 @@
                     hidePrediction();
                     
                     document.getElementById('startBtn').disabled = true;
-                    document.getElementById('captureBtn').disabled = false;
+                    // document.getElementById('captureBtn').disabled = false; // Laptop camera removed
                     document.getElementById('capturePiBtn').disabled = false;
                     document.getElementById('stopBtn').disabled = false;
                 } else {
@@ -372,7 +372,7 @@
                     );
                     
                     document.getElementById('startBtn').disabled = false;
-                    document.getElementById('captureBtn').disabled = true;
+                    // document.getElementById('captureBtn').disabled = true; // Laptop camera removed
                     document.getElementById('capturePiBtn').disabled = true;
                     document.getElementById('stopBtn').disabled = true;
                     hidePrediction();
