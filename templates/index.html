@@ -217,8 +217,16 @@
 
         <div class="buttons">
             <button id="startBtn" onclick="startSession()">START</button>
-            <button id="captureBtn" onclick="captureImage()" disabled>CAPTURE</button>
+            <!-- <button id="captureBtn" onclick="captureImage()" disabled>LAPTOP CAMERA</button> -->
+            <button id="capturePiBtn" onclick="capturePiImage()" disabled style="background: #9b59b6;">📷 PI CAMERA</button>
             <button id="stopBtn" onclick="stopSession()" disabled>STOP</button>
+        </div>
+
+        <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 10px; font-size: 0.9em;">
+            <label style="margin-right: 10px;">Pi IP:</label>
+            <input type="text" id="piIpInput" value="192.168.1.101" 
+                   style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 5px; width: 150px;">
+            <small style="display: block; margin-top: 5px; color: #666;">Change this to your Raspberry Pi's IP address</small>
         </div>
 
         <div class="prediction-result" id="predictionResult"></div>
@@ -282,6 +290,7 @@
                     
                     document.getElementById('startBtn').disabled = true;
                     document.getElementById('captureBtn').disabled = false;
+                    document.getElementById('capturePiBtn').disabled = false;
                     document.getElementById('stopBtn').disabled = false;
                 } else {
                     updateStatus('Error starting session', 'error');
@@ -297,7 +306,7 @@
             try {
                 showLoading(true);
                 hidePrediction();
-                updateStatus('Capturing and analyzing...', 'active');
+                updateStatus('Capturing from laptop camera...', 'active');
                 
                 const response = await fetch('/capture', { method: 'POST' });
                 const data = await response.json();
@@ -305,12 +314,44 @@
                 if (data.status === 'success') {
                     updateScores(data.can_count, data.plastic_count);
                     showPrediction(data.prediction, data.confidence);
-                    updateStatus(`Detected: ${data.prediction}!`, 'active');
+                    updateStatus(`Detected: ${data.prediction}! (Laptop)`, 'active');
                 } else {
                     updateStatus('Error: ' + data.message, 'error');
                 }
             } catch (error) {
                 updateStatus('Connection error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function capturePiImage() {
+            try {
+                showLoading(true);
+                hidePrediction();
+                updateStatus('📷 Capturing from Raspberry Pi...', 'active');
+                
+                const piIp = document.getElementById('piIpInput').value;
+                
+                const response = await fetch('/capture_from_pi', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ pi_ip: piIp })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateScores(data.can_count, data.plastic_count);
+                    showPrediction(data.prediction, data.confidence);
+                    updateStatus(`🍓 Pi detected: ${data.prediction}! Motor activated!`, 'active');
+                } else {
+                    updateStatus('Pi Error: ' + data.message, 'error');
+                }
+            } catch (error) {
+                updateStatus('Pi Connection error: ' + error.message, 'error');
             } finally {
                 showLoading(false);
             }
@@ -332,6 +373,7 @@
                     
                     document.getElementById('startBtn').disabled = false;
                     document.getElementById('captureBtn').disabled = true;
+                    document.getElementById('capturePiBtn').disabled = true;
                     document.getElementById('stopBtn').disabled = true;
                     hidePrediction();
                 }

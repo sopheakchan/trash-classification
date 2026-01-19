@@ -226,6 +226,229 @@ def get_scores():
         'is_active': session_data['is_active']
     })
 
+# ===== API ENDPOINTS FOR RASPBERRY PI =====
+
+@app.route('/api/status', methods=['GET'])
+def api_status():
+    """Check if server is online - Raspberry Pi uses this to test connection"""
+    return jsonify({
+        'status': 'online',
+        'session_active': session_data['is_active'],
+        'can_count': session_data['can_count'],
+        'plastic_count': session_data['plastic_count'],
+        'message': 'Laptop server is ready'
+    })
+
+@app.route('/capture_from_pi', methods=['POST'])
+def capture_from_pi():
+    """
+    NEW ENDPOINT: Web UI calls this to use Pi camera!
+    Orchestrates: Pi camera capture → Laptop AI → Pi motor control
+    
+    Flow:
+    1. Call Pi's /api/capture to get image
+    2. Classify image on laptop
+    3. Call Pi's /api/motor to activate motor
+    4. Return result to web UI
+    """
+    global session_data
+    import requests
+    
+    if not session_data['is_active']:
+        return jsonify({
+            'status': 'error',
+            'message': 'Session not active. Please start first.'
+        }), 400
+    
+    try:
+        # Get Pi IP from request or use default
+        data = request.get_json() or {}
+        pi_ip = data.get('pi_ip', '192.168.1.101')  # Default Pi IP
+        pi_url = f"http://{pi_ip}:5001"
+        
+        print(f"🍓 Requesting image from Pi at {pi_url}")
+        
+        # Step 1: Request image from Raspberry Pi
+        capture_response = requests.get(
+            f"{pi_url}/api/capture",
+            timeout=10
+        )
+        
+        if capture_response.status_code != 200:
+            return jsonify({
+                'status': 'error',
+                'message': f'Pi camera failed: {capture_response.text}'
+            }), 500
+        
+        capture_data = capture_response.json()
+        
+        if capture_data['status'] != 'success':
+            return jsonify({
+                'status': 'error',
+                'message': f"Pi error: {capture_data.get('message', 'Unknown')}"
+            }), 500
+        
+        image_b64 = capture_data['image']
+        print("   ✅ Received image from Pi")
+        
+        # Step 2: Decode and classify image (SAME as /api/classify endpoint!)
+        import base64
+        image_bytes = base64.b64decode(image_b64)
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to decode image from Pi'
+            }), 500
+        
+        # Save image
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        image_filename = f"pi_ui_{timestamp}.jpg"
+        image_path = os.path.join(PICTURE_FOLDER, image_filename)
+        cv2.imwrite(image_path, frame)
+        print(f"   💾 Saved: {image_filename}")
+        
+        # Preprocess and classify
+        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_resized = cv2.resize(img_rgb, (224, 224))
+        predicted_class, confidence = predict_image_tflite(img_resized)
+        
+        # Update counts
+        if predicted_class == 'Can':
+            session_data['can_count'] += 1
+        else:
+            session_data['plastic_count'] += 1
+        
+        print(f"   🤖 Prediction: {predicted_class} ({confidence*100:.2f}%)")
+        print(f"   📊 Counts - Can: {session_data['can_count']}, Plastic: {session_data['plastic_count']}")
+        
+        # Step 3: Tell Pi to activate motor
+        motor_response = requests.post(
+            f"{pi_url}/api/motor",
+            json={'prediction': predicted_class.lower()},
+            timeout=5
+        )
+        
+        motor_message = "Motor request sent"
+        if motor_response.status_code == 200:
+            motor_data = motor_response.json()
+            motor_message = motor_data.get('message', 'Motor activated')
+            print(f"   🔧 {motor_message}")
+        else:
+            print(f"   ⚠️ Motor activation failed: {motor_response.text}")
+        
+        # Step 4: Return result to web UI
+        return jsonify({
+            'status': 'success',
+            'prediction': predicted_class,
+            'confidence': round(confidence * 100, 2),
+            'can_count': session_data['can_count'],
+            'plastic_count': session_data['plastic_count'],
+            'image_saved': image_filename,
+            'motor_status': motor_message,
+            'source': 'raspberry_pi'
+        })
+        
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'status': 'error',
+            'message': 'Timeout connecting to Raspberry Pi. Check network and Pi IP.'
+        }), 500
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'status': 'error',
+            'message': 'Cannot connect to Raspberry Pi. Check if pi_server.py is running.'
+        }), 500
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': f'Server error: {str(e)}'
+        }), 500
+
+@app.route('/api/classify', methods=['POST'])
+def api_classify():
+    """
+    Receive image from Raspberry Pi and return classification
+    Raspberry Pi sends: {"image": "base64_encoded_jpeg"}
+    Returns: {"status": "success", "prediction": "can"/"plastic", "confidence": 95.2}
+    """
+    global session_data
+    
+    try:
+        # Get JSON data from Raspberry Pi
+        data = request.get_json()
+        
+        if not data or 'image' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'No image data provided. Expected {"image": "base64..."}'
+            }), 400
+        
+        print("📡 Received image from Raspberry Pi")
+        
+        # Decode base64 image
+        import base64
+        image_b64 = data['image']
+        image_bytes = base64.b64decode(image_b64)
+        
+        # Convert bytes to numpy array (same as laptop camera capture!)
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to decode image'
+            }), 400
+        
+        # Save image for logging
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        image_filename = f"pi_capture_{timestamp}.jpg"
+        image_path = os.path.join(PICTURE_FOLDER, image_filename)
+        cv2.imwrite(image_path, frame)
+        print(f"   💾 Saved: {image_filename}")
+        
+        # Preprocess (EXACTLY same as /capture endpoint!)
+        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_resized = cv2.resize(img_rgb, (224, 224))
+        
+        # Run AI model
+        predicted_class, confidence = predict_image_tflite(img_resized)
+        
+        # Update counts
+        if predicted_class == 'Can':
+            session_data['can_count'] += 1
+        else:
+            session_data['plastic_count'] += 1
+        
+        print(f"   🤖 Prediction: {predicted_class} ({confidence*100:.2f}%)")
+        print(f"   📊 Counts - Can: {session_data['can_count']}, Plastic: {session_data['plastic_count']}")
+        
+        # Return result to Raspberry Pi
+        return jsonify({
+            'status': 'success',
+            'prediction': predicted_class.lower(),  # 'can' or 'plastic'
+            'confidence': round(confidence * 100, 2),
+            'can_count': session_data['can_count'],
+            'plastic_count': session_data['plastic_count'],
+            'timestamp': timestamp
+        })
+        
+    except Exception as e:
+        print(f"❌ API Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': f'Server error: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     print("🚀 Starting Trash Classification Flask App...")
     print(f"📷 Camera will save images to: {os.path.abspath(PICTURE_FOLDER)}")
